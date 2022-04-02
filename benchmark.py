@@ -20,6 +20,29 @@ def construct_map_immutables(input_map):
     return map_
 
 
+def benchmark_construct(input_map):
+    print("Construct")
+    print("Input map size: {0}".format(len(input_map)))
+    number = 1000
+    benchmark_globals = globals()
+    benchmark_globals["input_map"] = input_map
+    pyrsistent_cost = timeit.timeit(
+        "a = construct_map_pyrsistent(input_map)",
+        number=number,
+        globals=benchmark_globals)
+    print(f"pyrsistent cost {pyrsistent_cost}")
+    frozendict_cost = timeit.timeit(
+        "a = construct_map_frozendict(input_map)",
+        number=number,
+        globals=benchmark_globals)
+    print(f"frozendict cost {frozendict_cost}")
+    immutables_cost = timeit.timeit(
+        "a = construct_map_immutables(input_map)",
+        number=number,
+        globals=benchmark_globals)
+    print(f"immutables cost {immutables_cost}")
+
+
 def benchmark_access(input_map):
     print("Access")
     print("Input map size: {0}".format(len(input_map)))
@@ -124,6 +147,8 @@ def update_and_diff_pyrsistent(map_,
     for id_, object_ in new_map.items():
         if object_ is not map_.get(id_, None):
             dirty_objects[id_] = object_
+    if len(dirty_objects) != 1:
+        raise AssertionError("number of dirty objects should be 1")
 
 
 def update_and_diff_frozendict(map_,
@@ -137,6 +162,8 @@ def update_and_diff_frozendict(map_,
     for id_, object_ in new_map.items():
         if object_ is not map_.get(id_, None):
             dirty_objects[id_] = object_
+    if len(dirty_objects) != 1:
+        raise AssertionError("number of dirty objects should be 1")
 
 
 def update_and_diff_immutables(map_,
@@ -150,6 +177,8 @@ def update_and_diff_immutables(map_,
     for id_, object_ in new_map.items():
         if object_ is not map_.get(id_, None):
             dirty_objects[id_] = object_
+    if len(dirty_objects) != 1:
+        raise AssertionError("number of dirty objects should be 1")
 
 
 def update_and_diff_case():
@@ -191,7 +220,10 @@ def update_and_diff_case():
 
 
 def main():
-    for case in [benchmark_access, benchmark_set, benchmark_remove]:
+    for case in [benchmark_construct,
+                 benchmark_access,
+                 benchmark_set,
+                 benchmark_remove]:
         for size in [10, 100, 1000, 10000, 100000]:
             input_map = {}
             for i in range(size):
