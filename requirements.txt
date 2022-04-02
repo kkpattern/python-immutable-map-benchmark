@@ -1,0 +1,3 @@
+frozendict==2.3.0
+immutables==0.17
+pyrsistent==0.18.1
