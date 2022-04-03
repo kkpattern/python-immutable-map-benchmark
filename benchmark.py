@@ -136,85 +136,90 @@ def benchmark_remove(input_map):
     # print(f"builtin dict cost {dict_cost}")
 
 
-def update_and_diff_pyrsistent(map_,
-                               id_to_update,
-                               key_to_update,
-                               value_to_update):
-    new_object = map_[id_to_update].set(key_to_update, value_to_update)
-    new_map = map_.set(id_to_update, new_object)
+def update_and_diff_pyrsistent(map_, update_list):
+    evolver = map_.evolver()
+    for object_id, key_to_update, value_to_update in update_list:
+        evolver[object_id] = evolver[object_id].set(key_to_update,
+                                                    value_to_update)
+    new_map = evolver.persistent()
 
     dirty_objects = {}
     for id_, object_ in new_map.items():
         if object_ is not map_.get(id_, None):
             dirty_objects[id_] = object_
-    if len(dirty_objects) != 1:
-        raise AssertionError("number of dirty objects should be 1")
+    assert len(dirty_objects) == len(update_list)
 
 
-def update_and_diff_frozendict(map_,
-                               id_to_update,
-                               key_to_update,
-                               value_to_update):
-    new_object = map_[id_to_update].set(key_to_update, value_to_update)
-    new_map = map_.set(id_to_update, new_object)
-
-    dirty_objects = {}
-    for id_, object_ in new_map.items():
-        if object_ is not map_.get(id_, None):
-            dirty_objects[id_] = object_
-    if len(dirty_objects) != 1:
-        raise AssertionError("number of dirty objects should be 1")
-
-
-def update_and_diff_immutables(map_,
-                               id_to_update,
-                               key_to_update,
-                               value_to_update):
-    new_object = map_[id_to_update].set(key_to_update, value_to_update)
-    new_map = map_.set(id_to_update, new_object)
+def update_and_diff_frozendict(map_, update_list):
+    raw_dict = dict(map_)
+    for object_id, key_to_update, value_to_update in update_list:
+        raw_dict[object_id] = raw_dict[object_id].set(key_to_update,
+                                                      value_to_update)
+    new_map = frozendict(raw_dict)
 
     dirty_objects = {}
     for id_, object_ in new_map.items():
         if object_ is not map_.get(id_, None):
             dirty_objects[id_] = object_
-    if len(dirty_objects) != 1:
-        raise AssertionError("number of dirty objects should be 1")
+    assert len(dirty_objects) == len(update_list)
 
 
-def update_and_diff_case():
+def update_and_diff_immutables(map_, update_list):
+    evolver = map_.mutate()
+    for object_id, key_to_update, value_to_update in update_list:
+        evolver[object_id] = evolver[object_id].set(key_to_update,
+                                                    value_to_update)
+    new_map = evolver.finish()
+
+    dirty_objects = {}
+    for id_, object_ in new_map.items():
+        if object_ is not map_.get(id_, None):
+            dirty_objects[id_] = object_
+    assert len(dirty_objects) == len(update_list)
+
+
+def update_and_diff_case(map_size, change_size):
+    assert map_size >= change_size
     print("Update and diff")
+    print(f"map size: {map_size}")
+    print(f"change size: {change_size}")
     benchmark_globals = globals()
 
+    update_list = []
+    for i in range(change_size):
+        update_list.append((i, "name", f"new_name_{i}"))
+    benchmark_globals["update_list"] = update_list
+
     id_to_object_raw = {}
-    for i in range(10000):
+    for i in range(map_size):
         id_to_object_raw[i] = pmap({"name": f"name{i}"})
     input_map = pmap(id_to_object_raw)
     benchmark_globals["input_map"] = input_map
     pyrsistent_cost = timeit.timeit(
-        "update_and_diff_pyrsistent(input_map, 1, \"name\", \"new_name\")",
-        number=100,
+        "update_and_diff_pyrsistent(input_map, update_list)",
+        number=1000,
         globals=benchmark_globals)
     print(f"pyrsistent cost {pyrsistent_cost}")
 
     id_to_object_raw = {}
-    for i in range(10000):
+    for i in range(map_size):
         id_to_object_raw[i] = frozendict({"name": f"name{i}"})
     input_map = frozendict(id_to_object_raw)
     benchmark_globals["input_map"] = input_map
     frozendict_cost = timeit.timeit(
-        "update_and_diff_frozendict(input_map, 1, \"name\", \"new_name\")",
-        number=100,
+        "update_and_diff_frozendict(input_map, update_list)",
+        number=1000,
         globals=benchmark_globals)
     print(f"frozendict cost {frozendict_cost}")
 
     id_to_object_raw = {}
-    for i in range(10000):
+    for i in range(map_size):
         id_to_object_raw[i] = Map({"name": f"name{i}"})
     input_map = Map(id_to_object_raw)
     benchmark_globals["input_map"] = input_map
     immutables_cost = timeit.timeit(
-        "update_and_diff_immutables(input_map, 1, \"name\", \"new_name\")",
-        number=100,
+        "update_and_diff_immutables(input_map, update_list)",
+        number=1000,
         globals=benchmark_globals)
     print(f"immutables cost {immutables_cost}")
 
@@ -229,7 +234,10 @@ def main():
             for i in range(size):
                 input_map[f"key{i}"] = i
             case(input_map)
-    update_and_diff_case()
+    for map_size in [1000, 10000]:
+        # for change_size in [1, 10, 100]:
+        for change_size in [1, 100, 1000]:
+            update_and_diff_case(map_size, change_size)
 
 
 if __name__ == "__main__":
