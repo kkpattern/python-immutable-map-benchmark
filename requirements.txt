@@ -1,3 +1,4 @@
 frozendict==2.3.0
 immutables==0.17
+memory-profiler==0.60.0
 pyrsistent==0.18.1
